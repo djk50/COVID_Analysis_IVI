@@ -1,0 +1,1932 @@
+---
+title: "COVFEFA_RMarkdown"
+author: "Daniel_Kim"
+date: "5/25/2020"
+output: html_document
+---
+A) Create Database 
+
+#1 Import Packages
+```{r Import Packages}
+#1 Import necessary R packages for project
+library(readr)
+library(dplyr)
+library(tibble)
+library(readxl)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(ggrepel)
+library(FactoMineR)
+library(factoextra)
+
+```
+
+#2 updated_base_file
+```{r}
+#2.1 This base file includes the country names and the country codes for each country used. This file will be used to accumulate data on the different versions of Country Names that each country could have. Ex.) USA can be represented as 'United States of America" or "United States". Later code will be performing the full_join function based on corresponding alpha-3 Country Codes because it is standardized. Country Names aren't standardized. The base file is also used to add country codes to variable files that don't already have country codes. 
+updated_base_file <- read_csv("base_file.csv")
+
+
+#2.2 Fix the weird country names with weired symbols. A name change is required for convenience.
+
+updated_base_file$Country_Name[updated_base_file$Country_Code == 'CUW'] <- 'Curacao'
+updated_base_file$Country_Name[updated_base_file$Country_Code == 'CIV'] <- 'Ivory Coast'
+updated_base_file$Country_Name[updated_base_file$Country_Code == 'ALA'] <- 'Aland Islands'
+updated_base_file$Country_Name[updated_base_file$Country_Code == 'REU'] <- 'Reunion'
+updated_base_file$Country_Name[updated_base_file$Country_Code == 'BLM'] <- 'Saint Barthelemy'
+
+
+
+
+```
+
+
+#3 Population Variable
+```{r}
+#3.1 Import the population variable file
+population2020 <- read_csv("worldpopreview.csv")
+
+#3.2 Population file does not include country codes. Left_join by 'Country_Name' with population   file and base_file to obtain country codes for population file. We always need the country codes for each variable file since we will be using country codes for the full_join function later.
+
+population2020 <- left_join(select(population2020, 'Country_Name', 'pop_2020'), updated_base_file, by = 'Country_Name')
+
+#3.3 Check for missing country codes on the population datasheet using the is.na function. Add all list of depicted countries with corresponding country codes into the base_file. 
+
+population2020$Country_Name[is.na(population2020$Country_Code)]
+
+updated_base_file <- rbind(updated_base_file, c("United States", "USA"))
+updated_base_file <- rbind(updated_base_file, c("Russia", "RUS"))
+updated_base_file <- rbind(updated_base_file, c("Vietnam", "VNM"))
+updated_base_file <- rbind(updated_base_file, c("DR Congo", "COD"))
+updated_base_file <- rbind(updated_base_file, c("Iran", "IRN"))
+updated_base_file <- rbind(updated_base_file, c("United Kingdom", "GBR"))
+updated_base_file <- rbind(updated_base_file, c("Tanzania", "TZA"))
+updated_base_file <- rbind(updated_base_file, c("South Korea", "KOR"))
+updated_base_file <- rbind(updated_base_file, c("Venezuela", "VEN"))
+updated_base_file <- rbind(updated_base_file, c("North Korea", "PRK"))
+updated_base_file <- rbind(updated_base_file, c("Taiwan", "TWN"))
+updated_base_file <- rbind(updated_base_file, c("Syria", "SYR"))
+updated_base_file <- rbind(updated_base_file, c("Bolivia", "BOL"))
+updated_base_file <- rbind(updated_base_file, c("Czech Republic", "CZE"))
+updated_base_file <- rbind(updated_base_file, c("Hong Kong", "HKG"))
+updated_base_file <- rbind(updated_base_file, c("Laos", "LAO"))
+updated_base_file <- rbind(updated_base_file, c("Republic of the Congo", "COG"))
+updated_base_file <- rbind(updated_base_file, c("Palestine", "PSE"))
+updated_base_file <- rbind(updated_base_file, c("Moldova", "MDA"))
+updated_base_file <- rbind(updated_base_file, c("Macedonia", "MKD"))
+updated_base_file <- rbind(updated_base_file, c("Macau", "MAC"))
+updated_base_file <- rbind(updated_base_file, c("Cape Verde", "CPV"))
+updated_base_file <- rbind(updated_base_file, c("Brunei", "BRN"))
+updated_base_file <- rbind(updated_base_file, c("Micronesia", "FSM"))
+updated_base_file <- rbind(updated_base_file, c("Sint Maarten", "SXM"))
+updated_base_file <- rbind(updated_base_file, c("Saint Martin", "MAF"))
+updated_base_file <- rbind(updated_base_file, c("Wallis and Futuna", "WLF"))
+updated_base_file <- rbind(updated_base_file, c("Falkland Islands",  "FLK"))
+updated_base_file <- rbind(updated_base_file, c("Vatican City",  "VAT"))
+
+#3.4 Will need to do another left_join with the population2020 file and the updated base file that includes the orginally missing country codes
+
+population2020 <- left_join(select(population2020, 'Country_Name', 'pop_2020'), updated_base_file, by = 'Country_Name')
+
+#3.5 Check again which country code is NA in population2020 file
+
+population2020$Country_Name[is.na(population2020$Country_Code)]
+
+
+#3.6 Unique symbol for Saint Barthélemy requires manual change to add country code
+population2020$Country_Code[is.na(population2020$Country_Code)] <- 'BLM'
+
+# 3.7 import all_data file which orginally includes only country names and country codes. Need to change the weird symbols in this file as well. 
+all_data <- read_csv("base_file.csv")
+
+all_data$Country_Name[all_data$Country_Code == 'CUW'] <- 'Curacao'
+all_data$Country_Name[all_data$Country_Code == 'CIV'] <- 'Ivory Coast'
+all_data$Country_Name[all_data$Country_Code == 'ALA'] <- 'Aland Islands'
+all_data$Country_Name[all_data$Country_Code == 'REU'] <- 'Reunion'
+all_data$Country_Name[all_data$Country_Code == 'BLM'] <- 'Saint Barthelemy'
+
+
+
+#3.8 Since we have the necessary country codes for population2020 now, we can use full_join to merge the population column into the all_data spreadsheet (now Taiwan is added to all_data)
+
+all_data <- full_join(all_data, select(population2020, 'pop_2020', 'Country_Code'), by = 'Country_Code')
+
+#3.9 Need to manually input the Country Name Taiwan to all_data
+
+all_data$Country_Name[all_data$Country_Code == 'TWN'] <- 'Taiwan'
+
+
+#3.10 Use Codes to test a few cases
+
+population2020 %>% filter(Country_Code == 'CHN') %>% select(pop_2020) == all_data %>% filter(Country_Code == 'CHN') %>% select(pop_2020)
+
+population2020 %>% filter(Country_Code == 'USA') %>% select(pop_2020) == all_data %>% filter(Country_Code == 'USA') %>% select(pop_2020)
+
+population2020 %>% filter(Country_Code == 'ARG') %>% select(pop_2020) == all_data %>% filter(Country_Code == 'ARG') %>% select(pop_2020)
+
+population2020 %>% filter(Country_Code == 'NGA') %>% select(pop_2020) == all_data %>% filter(Country_Code == 'NGA') %>% select(pop_2020)
+
+population2020 %>% filter(Country_Code == 'BEL') %>% select(pop_2020) == all_data %>% filter(Country_Code == 'BEL') %>% select(pop_2020)
+
+
+
+```
+
+#4 GDP Variable
+
+```{r}
+#4.1 Import the GDP file
+
+GDP_2018 <- read_csv("API_NY.GDP.MKTP.CD_DS2_en_csv_v2_936013.csv",
+    skip = 4)
+
+#4.2 Change the column name of 'Country Code' to 'Country_Code' in GDP_2018 in order to match column names when using full_join
+
+colnames(GDP_2018)[which(names(GDP_2018) == "Country Code")] <- "Country_Code"
+
+#4.3 Change the column name of '2018' to 'GDP_2018' in GDP_2018
+
+colnames(GDP_2018)[which(names(GDP_2018) == "2018")] <- "GDP_2018"
+
+#4.4 Use the full_join function to merge the GDP column variable onto all_data
+
+all_data <- full_join(all_data, select(GDP_2018, 'Country_Code', 'GDP_2018'), by = 'Country_Code')
+
+#4.5 Add the Country Name for Kosovo into the all_data sheet
+all_data$Country_Name[all_data$Country_Code == 'XKX'] <- 'Kosovo'
+
+#4.6 The GDP file includes geographic regions as well that are not countries. These rows are also added to all_data. Best to filter out these rows.
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#4.7 Taiwan GDP retrieved data from https://countryeconomy.com/gdp/taiwan#:~:text=The%20GDP%20figure%20in%202018,2017%2C%20when%20it%20was%20%2424%2C390.
+
+all_data$GDP_2018[all_data$Country_Code == "TWN"] = 589906000000
+
+#4.8 Add a few test cases
+
+GDP_2018 %>% filter(Country_Code == 'USA') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'USA') %>% select(GDP_2018)
+
+GDP_2018 %>% filter(Country_Code == 'URY') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'URY') %>% select(GDP_2018)
+
+GDP_2018 %>% filter(Country_Code == 'TZA') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'TZA') %>% select(GDP_2018)
+
+GDP_2018 %>% filter(Country_Code == 'UGA') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'UGA') %>% select(GDP_2018)
+
+GDP_2018 %>% filter(Country_Code == 'ESP') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'ESP') %>% select(GDP_2018)
+
+GDP_2018 %>% filter(Country_Code == 'SRB') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'SRB') %>% select(GDP_2018)
+
+GDP_2018 %>% filter(Country_Code == 'PHL') %>% select(GDP_2018) == all_data %>% filter(Country_Code == 'PHL') %>% select(GDP_2018)
+
+```
+#5 Median Age 
+```{r}
+
+#5.1 Import the Median Age file and get rid of Gaza Strip PSE/change BUR to MMR
+MedianAge_2020 <- read_excel("Median_Age_Final.xlsx")
+
+colnames(MedianAge_2020)[which(names(MedianAge_2020) == "Country Name")] <- "Country_Name"
+
+MedianAge_2020 <- MedianAge_2020 %>% filter(Country_Name != 'Gaza Strip')
+
+MedianAge_2020$Country_Code[MedianAge_2020$Country_Code == 'BUR'] <- 'MMR'
+
+#5.2 Use the full_join function to merge the median age variable column to the all_data spreadsheet
+
+all_data <- full_join(all_data, select(MedianAge_2020, 'Country_Code', 'Median_Age'), by = 'Country_Code')
+
+#5.3 Change the column name of median age to the appropriate column name in all_data
+
+colnames(all_data)[which(names(all_data) == "Median_Age")] <- "MedianAge_2020"
+
+#5.4 Run a few test cases 
+
+MedianAge_2020 %>% filter(Country_Code == 'JPN') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'JPN') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'PRT') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'PRT') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'AUT') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'AUT') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'EST') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'EST') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'CZE') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'CZE') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'NLD') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'NLD') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'CAN') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'CAN') %>% select(MedianAge_2020)
+
+MedianAge_2020 %>% filter(Country_Code == 'RUS') %>% select(Median_Age) == all_data %>% filter(Country_Code == 'RUS') %>% select(MedianAge_2020)
+
+```
+
+#6 Smoking Prevalence
+
+```{r}
+#6.1 Import the smoking prevalence file
+
+smoking_prevalence_2016 <- read_csv("smoking_prevalence_final.csv", 
+    skip = 4)
+
+#6.2 Change the column name of 'Country Code' into 'Country_Code' to match all_data set
+
+colnames(smoking_prevalence_2016)[which(names(smoking_prevalence_2016) == "Country Code")] <- "Country_Code"
+
+#6.3 Use the full_join function to merge the smoking prevalence variable column to the all_data spreadsheet
+
+all_data <- full_join(all_data, select(smoking_prevalence_2016, 'Country_Code', '2016'), by = 'Country_Code')
+
+#6.4 Change the name of '2016' in all_data to 'smoking_prevalence_2016' 
+
+colnames(all_data)[which(names(all_data) == "2016")] <- "smoking_prevalence_2016"
+
+#6.5 The GDP file includes geographic regions as well that are not countries. These rows are also added to all_data. Best to filter out these rows.
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#6.6 HKG 2017 smoking prevalence data from https://www.smokefree.hk/en/content/web.do?page=SmokingTrend
+
+all_data$smoking_prevalence_2016[all_data$Country_Code == 'HKG'] = 10.8
+
+
+#6.7 Add some test cases 
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'YEM') %>% select('2016') == all_data %>% filter(Country_Code == 'YEM') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'ZMB') %>% select('2016') == all_data %>% filter(Country_Code == 'ZMB') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'ZWE') %>% select('2016') == all_data %>% filter(Country_Code == 'ZWE') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'VNM') %>% select('2016') == all_data %>% filter(Country_Code == 'VNM') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'USA') %>% select('2016') == all_data %>% filter(Country_Code == 'USA') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'TZA') %>% select('2016') == all_data %>% filter(Country_Code == 'TZA') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'UKR') %>% select('2016') == all_data %>% filter(Country_Code == 'UKR') %>% select(smoking_prevalence_2016)
+
+smoking_prevalence_2016 %>% filter(Country_Code == 'TUN') %>% select('2016') == all_data %>% filter(Country_Code == 'TUN') %>% select(smoking_prevalence_2016)
+
+
+```
+#7 Freedom Index (Source definition: Freedom index is the average of political rights and civil liberties ratings and is used to determine countries' freedom statuses. It's range on a scale of 1(most free) to 7(least free))
+
+```{r}
+#7.1 Import freedom index file 
+
+freeidx_2018 <- read_csv("freedix_fh.csv")
+
+#7.2 Change the column name 'country' to 'Country_Name' in freeidx_2018 file
+colnames(freeidx_2018)[which(names(freeidx_2018) == "country")] <- "Country_Name"
+
+#7.3 Change the column name '2018' to 'freedix_2018' in the file freeidx_2018
+colnames(freeidx_2018)[which(names(freeidx_2018) == '2018')] <- "freeidx_2018"
+
+#7.4 Freedom Index file does not include country codes. Left_join by 'Country_Name' with freeidx file and base_file to obtain country codes for freeidx file
+
+freeidx_2018 <- left_join(select(freeidx_2018, 'Country_Name', 'freeidx_2018'), updated_base_file, by = 'Country_Name')
+
+#7.5 Check for missing country codes on the freeidx datasheet using the is.na function. Add all list of depicted countries with corresponding country codes into the base_file. 
+
+freeidx_2018$Country_Name[is.na(freeidx_2018$Country_Code)]
+
+updated_base_file <- rbind(updated_base_file, c("Congo, Dem. Rep.", "COD"))
+updated_base_file <- rbind(updated_base_file, c("Congo, Rep.", "COG"))
+updated_base_file <- rbind(updated_base_file, c("Kyrgyz Republic", "KGZ"))
+updated_base_file <- rbind(updated_base_file, c("Lao", "LAO"))
+updated_base_file <- rbind(updated_base_file, c("Micronesia, Fed. Sts.", "FSM"))
+updated_base_file <- rbind(updated_base_file, c("North Macedonia", "MKD"))
+updated_base_file <- rbind(updated_base_file, c("Slovak Republic", "SVK"))
+updated_base_file <- rbind(updated_base_file, c("St. Kitts and Nevis", "KNA"))
+updated_base_file <- rbind(updated_base_file, c("St. Lucia", "LCA"))
+updated_base_file <- rbind(updated_base_file, c("St. Vincent and the Grenadines", "VCT"))
+
+#7.6 Will need to do another left_join with the freeidx_2018 file and the updated base file that includes the orginally missing country codes
+
+freeidx_2018 <- left_join(select(freeidx_2018, 'Country_Name', 'freeidx_2018'), updated_base_file, by = 'Country_Name')
+
+#7.7 Check again which country code is NA in population2020 file
+
+freeidx_2018$Country_Name[is.na(freeidx_2018$Country_Code)]
+
+#7.8 Manually input country code for cote d'ivoire
+
+freeidx_2018$Country_Code[is.na(freeidx_2018$Country_Code)] <- 'CIV'
+
+#7.9 Use the full_join function to merge the freedom index variable into the all_data sheet
+
+all_data <- full_join(all_data, select(freeidx_2018, 'Country_Code', 'freeidx_2018'), by = 'Country_Code')
+
+#7.10 Add a few test cases 
+
+freeidx_2018 %>% filter(Country_Code == 'AFG') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'AFG') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'ALB') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'ALB') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'ARG') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'ARG') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'BGR') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'BGR') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'CHL') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'CHL') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'BGR') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'BGR') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'COG') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'COG') %>% select(freeidx_2018)
+
+freeidx_2018 %>% filter(Country_Code == 'EGY') %>% select(freeidx_2018) == all_data %>% filter(Country_Code == 'EGY') %>% select(freeidx_2018)
+
+
+```
+
+# 8 Female/Male Proportions By Country 
+
+```{r}
+#Note: Will import both female and male proportions which will be used to calculate the female/male ratio 
+#8.1 Import female file
+female_prop_2018 <- read_csv("female_population.csv", 
+    skip = 4)
+
+#8.2  Change the column name 'Country Code' to 'Country_Code' in female_prop_2018 file
+colnames(female_prop_2018)[which(names(female_prop_2018) == "Country Code")] <- "Country_Code"
+
+#8.3 Change the column name '2018' to 'female_prop_2018' in the file female_prop_2018 file
+colnames(female_prop_2018)[which(names(female_prop_2018) == '2018')] <- "female_prop_2018"
+
+#8.4 Use the full_join function to merge the female column to the all_data spreadsheet
+all_data <- full_join(all_data, select(female_prop_2018, 'Country_Code', 'female_prop_2018'), by = 'Country_Code')
+
+#8.5 The female_pop_2018 file includes geographic regions as well that are not countries. These rows are also added to all_data. Best to filter out these rows.
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#8.6 Add some test cases
+
+female_prop_2018 %>% filter(Country_Code == 'KIR') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'KIR') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'JOR') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'JOR') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'JPN') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'JPN') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'LAO') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'LAO') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'LVA') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'LVA') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'BGD') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'BGD') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'AUT') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'AUT') %>% select(female_prop_2018)
+
+female_prop_2018 %>% filter(Country_Code == 'ALB') %>% select('female_prop_2018') == all_data %>% filter(Country_Code == 'ALB') %>% select(female_prop_2018)
+
+
+#8.7 Import male file
+
+male_prop_2018 <- read_csv("male_population.csv", skip = 4)
+
+#8.8  Change the column name 'Country Code' to 'Country_Code' in male_prop_2018 file
+colnames(male_prop_2018)[which(names(male_prop_2018) == "Country Code")] <- "Country_Code"
+
+#8.9 Change the column name '2018' to 'male_prop_2018' in the file male_prop_2018 file
+colnames(male_prop_2018)[which(names(male_prop_2018) == '2018')] <- "male_prop_2018"
+
+#8.10 Use the full_join function to merge the male column to the all_data spreadsheet
+all_data <- full_join(all_data, select(male_prop_2018, 'Country_Code', 'male_prop_2018'), by = 'Country_Code')
+
+#8.11 The male_pop_2018 file includes geographic regions as well that are not countries. These rows are also added to all_data. Best to filter out these rows.
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+
+#8.12 Add some test cases
+
+male_prop_2018 %>% filter(Country_Code == 'KIR') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'KIR') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'JOR') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'JOR') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'JPN') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'JPN') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'LAO') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'LAO') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'LVA') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'LVA') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'BGD') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'BGD') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'AUT') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'AUT') %>% select(male_prop_2018)
+
+male_prop_2018 %>% filter(Country_Code == 'ALB') %>% select('male_prop_2018') == all_data %>% filter(Country_Code == 'ALB') %>% select(male_prop_2018)
+
+```
+
+#9 Total Number of Tests By Country (Will need periodic downloads from the website: https://www.finddx.org/covid-19/test-tracker/) 
+
+```{r}
+#9.1 import tests_per_inhab_update file 
+
+#sum_tests_latest <- read_csv("update_FIND_COVID_tests.csv")
+#new file
+sum_tests_latest <- read_csv("new_COVID-19 cases and tests tracker.csv")
+
+
+#9.2 Change column variable name of 'country' into 'Country_Name' 
+
+colnames(sum_tests_latest)[which(names(sum_tests_latest) == "country")] <- "Country_Name"
+
+#9.3 Select only the columns that are needed for use
+
+sum_tests_latest <- select(sum_tests_latest, 'Country_Name', 'new_tests')
+
+#9.4 Group_by the country name and find the sum of total cases
+
+sum_tests_latest <- sum_tests_latest %>% group_by(Country_Name) %>% summarise(sum_tests = sum(new_tests, na.rm = TRUE)) 
+
+#9.5 sum_cases_latest file does not include country codes. Left_join by 'Country_Name' with sum_cases_latest file and base_file to obtain country codes for sum_cases_latest file
+
+sum_tests_latest <- left_join(select(sum_tests_latest, 'Country_Name', 'sum_tests'), updated_base_file, by = 'Country_Name')
+
+#9.6 Check for missing country codes on the sum_cases_latest datasheet using the is.na function. Add all list of depicted countries with corresponding country codes into the base_file. 
+
+sum_tests_latest$Country_Name[is.na(sum_tests_latest$Country_Code)]
+
+updated_base_file <- rbind(updated_base_file, c("Cote d'Ivoire", "CIV"))
+updated_base_file <- rbind(updated_base_file, c("Eswatini", "SWZ"))
+updated_base_file <- rbind(updated_base_file, c("Guinea Bissau", "GNB"))
+updated_base_file <- rbind(updated_base_file, c("Kosovo", "XKX"))
+updated_base_file <- rbind(updated_base_file, c("Mainland China", "CHN"))
+updated_base_file <- rbind(updated_base_file, c("Occupied Palestinian Territory", "PSE"))
+updated_base_file <- rbind(updated_base_file, c("The Bahamas", "BHS"))
+updated_base_file <- rbind(updated_base_file, c("The Gambia", "GMB"))
+updated_base_file <- rbind(updated_base_file, c("UK", "GBR"))
+updated_base_file <- rbind(updated_base_file, c("USA", "USA"))
+
+
+#9.7 Will need to do another left_join with the sum_cases_latest file and the updated base file that includes the orginally missing country codes
+
+sum_tests_latest <- left_join(select(sum_tests_latest, 'Country_Name', 'sum_tests'), updated_base_file, by = 'Country_Name')
+
+#9.8 Check again which country code is NA in population2020 file
+
+sum_tests_latest$Country_Name[is.na(sum_tests_latest$Country_Code)]
+
+#9.9 Use the full_join function to merge the sum_cases_latest variable into the all_data sheet
+
+all_data <- full_join(all_data, select(sum_tests_latest, 'Country_Code', 'sum_tests'), by = 'Country_Code')
+
+#9.10 Add a few test cases
+
+sum_tests_latest %>% filter(Country_Code == 'AFG') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'AFG') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'ALB') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'ALB') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'AZE') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'AZE') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'BWA') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'BWA') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'CAN') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'CAN') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'HKG') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'HKG') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'HUN') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'HUN') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'ESP') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'ESP') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'TUR') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'TUR') %>% select('sum_tests')
+
+sum_tests_latest %>% filter(Country_Code == 'ZWE') %>% select('sum_tests') == all_data %>% filter(Country_Code == 'ZWE') %>% select('sum_tests')
+
+
+
+```
+
+#10 A)  Maximum Stringency Index (Needs to be periodically updated from website: https://www.bsg.ox.ac.uk/research/research-projects/coronavirus-government-response-tracker)
+
+```{r}
+#10 A.1 Import the Stringency Index File
+
+max_stringency_index <- read_csv("covid-stringency-index-8-6.csv")
+
+#10 A.2 Change the column name 'Code' into 'Country_Code' and also the stringency index name to simpler form
+
+colnames(max_stringency_index)[which(names(max_stringency_index) == "Code")] <- "Country_Code"
+
+colnames(max_stringency_index)[which(names(max_stringency_index) == "Government Response Stringency Index ((0 to 100, 100 = strictest))")] <- "stringency_index"
+
+#10 A.3 Find the maximum stringency index of each country using group_by and summarise/correct Kosovo
+
+max_stringency_index <- max_stringency_index %>% group_by(Country_Code) %>% summarise(max_stringency_index = max(stringency_index, na.rm = TRUE))
+
+max_stringency_index$Country_Code[max_stringency_index$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+
+#10 A.4 Use the full_join function to merge the max_stringency_index into the all_data variable
+
+all_data <- full_join(all_data, max_stringency_index, by = 'Country_Code')
+
+
+#10 A.5 Add a few test cases
+
+
+max_stringency_index %>% filter(Country_Code == 'ARG') %>% select('max_stringency_index') == all_data %>% filter(Country_Code == 'ARG') %>% select('max_stringency_index')
+
+max_stringency_index %>% filter(Country_Code == 'USA') %>% select('max_stringency_index') == all_data %>% filter(Country_Code == 'USA') %>% select('max_stringency_index')
+
+max_stringency_index %>% filter(Country_Code == 'CHN') %>% select('max_stringency_index') == all_data %>% filter(Country_Code == 'CHN') %>% select('max_stringency_index')
+
+max_stringency_index %>% filter(Country_Code == 'BLZ') %>% select('max_stringency_index') == all_data %>% filter(Country_Code == 'BLZ') %>% select('max_stringency_index')
+
+max_stringency_index %>% filter(Country_Code == 'TWN') %>% select('max_stringency_index') == all_data %>% filter(Country_Code == 'TWN') %>% select('max_stringency_index')
+
+
+```
+
+#10 B)  Medium Stringency Index (Needs to be periodically updated from website: https://www.bsg.ox.ac.uk/research/research-projects/coronavirus-government-response-tracker)
+
+```{r}
+#10 B.1 Import the Stringency Index File
+
+median_stringency_index <- read_csv("covid-stringency-index-8-6.csv")
+
+#10 B.2 Change the column name 'Code' into 'Country_Code' and also the stringency index name to simpler form
+
+colnames(median_stringency_index)[which(names(median_stringency_index) == "Code")] <- "Country_Code"
+
+colnames(median_stringency_index)[which(names(median_stringency_index) == "Government Response Stringency Index ((0 to 100, 100 = strictest))")] <- "stringency_index"
+
+#10 B.3 Find the median stringency index of each country using group_by and summarise/correct kosovo
+
+median_stringency_index <- median_stringency_index %>% group_by(Country_Code) %>% summarise(median_stringency_index = median(stringency_index, na.rm = TRUE))
+
+median_stringency_index$Country_Code[median_stringency_index$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+
+#10 A.4 Use the full_join function to merge the max_stringency_index into the all_data variable
+
+all_data <- full_join(all_data, median_stringency_index, by = 'Country_Code')
+
+
+#10 A.5 Add a few test cases
+
+ median_stringency_index %>% filter(Country_Code == 'AFG') %>% select('median_stringency_index') == all_data %>% filter(Country_Code == 'AFG') %>% select('median_stringency_index')
+ 
+ median_stringency_index %>% filter(Country_Code == 'THA') %>% select('median_stringency_index') == all_data %>% filter(Country_Code == 'THA') %>% select('median_stringency_index')
+ 
+ median_stringency_index %>% filter(Country_Code == 'TLS') %>% select('median_stringency_index') == all_data %>% filter(Country_Code == 'TLS') %>% select('median_stringency_index')
+ 
+ median_stringency_index %>% filter(Country_Code == 'USA') %>% select('median_stringency_index') == all_data %>% filter(Country_Code == 'USA') %>% select('median_stringency_index')
+ 
+ median_stringency_index %>% filter(Country_Code == 'CAN') %>% select('median_stringency_index') == all_data %>% filter(Country_Code == 'CAN') %>% select('median_stringency_index')
+ 
+ median_stringency_index %>% filter(Country_Code == 'GBR') %>% select('median_stringency_index') == all_data %>% filter(Country_Code == 'GBR') %>% select('median_stringency_index')
+
+
+
+```
+
+
+#10 C) Earliest Date of Max Stringency Index (Needs to be periodically updated from website: https://www.bsg.ox.ac.uk/research/research-projects/coronavirus-government-response-tracker)
+
+```{r}
+#10 C.1 Import the earliest max stringency file
+earliest_max_string_date <- read_csv("covid-stringency-index-8-6.csv")
+
+#10 C.2 Change the column name 'Code' into 'Country_Code' and also the stringency index name to simpler form
+
+colnames(earliest_max_string_date)[which(names(earliest_max_string_date) == "Code")] <- "Country_Code"
+
+colnames(earliest_max_string_date)[which(names(earliest_max_string_date) == "Government Response Stringency Index ((0 to 100, 100 = strictest))")] <- "stringency_index"
+
+#10 C.3 Find the earliest date of the max stringency index of each country using group_by and summarise/fix kosovo
+
+earliest_max_string_date <- earliest_max_string_date %>% group_by(Country_Code) %>% filter(stringency_index == max(stringency_index, na.rm = TRUE)) %>% slice(1)
+
+earliest_max_string_date$Country_Code[earliest_max_string_date$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+
+#10 C.4 Change the column name of 'Date' into earliest_max_string_date
+
+colnames(earliest_max_string_date)[which(names(earliest_max_string_date) == "Date")] <- "earliest_max_string_date"
+
+#10 C.5 Use the full_join function to add the earliest_max_string_date variable into the all_data sheet
+
+all_data <- full_join(all_data, select(earliest_max_string_date, 'Country_Code', 'earliest_max_string_date'), by = 'Country_Code')
+
+#10 C.6 Add a few test cases
+
+earliest_max_string_date %>% filter(Country_Code == 'AFG') %>% ungroup() %>% select('earliest_max_string_date') == all_data %>% filter(Country_Code == 'AFG') %>% select('earliest_max_string_date')
+
+earliest_max_string_date %>% filter(Country_Code == 'ABW') %>% ungroup() %>% select('earliest_max_string_date') == all_data %>% filter(Country_Code == 'ABW') %>% select('earliest_max_string_date')
+
+earliest_max_string_date %>% filter(Country_Code == 'BDI') %>% ungroup() %>% select('earliest_max_string_date') == all_data %>% filter(Country_Code == 'BDI') %>% select('earliest_max_string_date')
+
+earliest_max_string_date %>% filter(Country_Code == 'YEM') %>% ungroup() %>% select('earliest_max_string_date') == all_data %>% filter(Country_Code == 'YEM') %>% select('earliest_max_string_date')
+
+```
+
+#11 A) Private health expenditure
+
+```{r}
+#11 A.1 Import the private health file
+private_health_2017 <- read_csv("private_health_2017.csv", 
+    skip = 4)
+
+#11 A.2 Change the column name 'Country Code' into 'Country_Code' and also '2017' to 'private_health_2017'
+
+colnames(private_health_2017)[which(names(private_health_2017) == "Country Code")] <- "Country_Code"
+
+colnames(private_health_2017)[which(names(private_health_2017) == '2017')] <- "private_health_2017"
+
+#11 A.3 Use the full_join function to add the private_health_2017 variable into the all_data sheet
+
+all_data <- full_join(all_data, select(private_health_2017, 'Country_Code', 'private_health_2017'), by = 'Country_Code')
+
+#11 A.4 Get rid of country names that are NA since they are not official countries
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#11 A.5 Add a few test cases 
+
+private_health_2017 %>% filter(Country_Code == 'AFG') %>% select('private_health_2017') == all_data %>% filter(Country_Code == 'AFG') %>% select('private_health_2017')
+
+private_health_2017 %>% filter(Country_Code == 'DZA') %>% select('private_health_2017') == all_data %>% filter(Country_Code == 'DZA') %>% select('private_health_2017')
+
+private_health_2017 %>% filter(Country_Code == 'LBR') %>% select('private_health_2017') == all_data %>% filter(Country_Code == 'LBR') %>% select('private_health_2017')
+
+private_health_2017 %>% filter(Country_Code == 'ZWE') %>% select('private_health_2017') == all_data %>% filter(Country_Code == 'ZWE') %>% select('private_health_2017')
+
+private_health_2017 %>% filter(Country_Code == 'CHE') %>% select('private_health_2017') == all_data %>% filter(Country_Code == 'CHE') %>% select('private_health_2017')
+
+private_health_2017 %>% filter(Country_Code == 'LCA') %>% select('private_health_2017') == all_data %>% filter(Country_Code == 'LCA') %>% select('private_health_2017')
+```
+
+#11 B) Public health expenditure
+
+```{r}
+#11 B.1 Import the file public health expenditure
+
+public_health_2017 <- read_csv("public_health_2017.csv", 
+    skip = 4)
+
+#11 B.2 Change the column name 'Country Code' into 'Country_Code' and also '2017' to 'private_health_2017'
+
+colnames(public_health_2017)[which(names(public_health_2017) == "Country Code")] <- "Country_Code"
+
+colnames(public_health_2017)[which(names(public_health_2017) == '2017')] <- "public_health_2017"
+
+
+#11 B.3 Use the full_join function to add the private_health_2017 variable into the all_data sheet
+
+all_data <- full_join(all_data, select(public_health_2017, 'Country_Code', 'public_health_2017'), by = 'Country_Code')
+
+#11 B.4 Get rid of country names that are NA since they are not official countries
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+
+#11 B.5 Add a few test cases 
+
+public_health_2017 %>% filter(Country_Code == 'AFG') %>% select('public_health_2017') == all_data %>% filter(Country_Code == 'AFG') %>% select('public_health_2017')
+
+public_health_2017 %>% filter(Country_Code == 'DZA') %>% select('public_health_2017') == all_data %>% filter(Country_Code == 'DZA') %>% select('public_health_2017')
+
+public_health_2017 %>% filter(Country_Code == 'LBR') %>% select('public_health_2017') == all_data %>% filter(Country_Code == 'LBR') %>% select('public_health_2017')
+
+public_health_2017 %>% filter(Country_Code == 'ZWE') %>% select('public_health_2017') == all_data %>% filter(Country_Code == 'ZWE') %>% select('public_health_2017')
+
+public_health_2017 %>% filter(Country_Code == 'CHE') %>% select('public_health_2017') == all_data %>% filter(Country_Code == 'CHE') %>% select('public_health_2017')
+
+public_health_2017 %>% filter(Country_Code == 'LCA') %>% select('public_health_2017') == all_data %>% filter(Country_Code == 'LCA') %>% select('public_health_2017')
+
+```
+#12 A) GNI per capita 
+
+```{r}
+#12 A.1 Import the GNI file
+
+GNI_per_capita_2018 <- read_csv("GNI_per_capita_2018.csv", 
+    skip = 4)
+
+#12 A.2 Change the column name 'Country Code' into 'Country_Code' and also '2018' to 'GNI_per_capita_2018'
+
+colnames(GNI_per_capita_2018)[which(names(GNI_per_capita_2018) == "Country Code")] <- "Country_Code"
+
+colnames(GNI_per_capita_2018)[which(names(GNI_per_capita_2018) == '2018')] <- "GNI_per_capita_2018"
+
+#12 A.3 Use the full_join function to add the GNI per capita variable into the all_data sheet
+
+all_data <- full_join(all_data, select(GNI_per_capita_2018, 'Country_Code', 'GNI_per_capita_2018'), by = 'Country_Code')
+
+#12 A.4 Get rid of country names that are NA since they are not official countries
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#12 A.5 Taiwan 2020 GNI per capita retrieved data from https://eng.stat.gov.tw/point.asp?index=1
+
+all_data$GNI_per_capita_2018[all_data$Country_Code == "TWN"] = 27867
+
+
+#12 A.6 Add a few test cases
+
+GNI_per_capita_2018 %>% filter(Country_Code == 'AFG') %>% select('GNI_per_capita_2018') == all_data %>% filter(Country_Code == 'AFG') %>% select('GNI_per_capita_2018')
+
+GNI_per_capita_2018 %>% filter(Country_Code == 'ATG') %>% select('GNI_per_capita_2018') == all_data %>% filter(Country_Code == 'ATG') %>% select('GNI_per_capita_2018')
+
+GNI_per_capita_2018 %>% filter(Country_Code == 'AUS') %>% select('GNI_per_capita_2018') == all_data %>% filter(Country_Code == 'AUS') %>% select('GNI_per_capita_2018')
+
+GNI_per_capita_2018 %>% filter(Country_Code == 'ZMB') %>% select('GNI_per_capita_2018') == all_data %>% filter(Country_Code == 'ZMB') %>% select('GNI_per_capita_2018')
+
+GNI_per_capita_2018 %>% filter(Country_Code == 'UKR') %>% select('GNI_per_capita_2018') == all_data %>% filter(Country_Code == 'UKR') %>% select('GNI_per_capita_2018')
+
+GNI_per_capita_2018 %>% filter(Country_Code == 'TUV') %>% select('GNI_per_capita_2018') == all_data %>% filter(Country_Code == 'TUV') %>% select('GNI_per_capita_2018')
+
+
+
+```
+#12 B) Out-of-pocket expenditure per capita 
+
+```{r}
+#12 B.1 Import the out of pocket expenditure per capita file 
+
+outofpocket_per_capita_2017 <- read_csv("outofpocket_per_capita_2017/outofpocket_per_capita_2017.csv", 
+    skip = 4)
+
+#12 B.2 Change the column name 'Country Code' into 'Country_Code' and also '2018' to 'GNI_per_capita_2018'
+
+colnames(outofpocket_per_capita_2017)[which(names(outofpocket_per_capita_2017) == "Country Code")] <- "Country_Code"
+
+colnames(outofpocket_per_capita_2017)[which(names(outofpocket_per_capita_2017) == '2017')] <- "outofpocket_per_capita_2017"
+
+#12 B.3 Use the full_join function to add the out of pocket expenditure per capita variable into the all_data sheet
+
+all_data <- full_join(all_data, select(outofpocket_per_capita_2017, 'Country_Code', 'outofpocket_per_capita_2017'), by = 'Country_Code')
+
+
+#12 B.4 Get rid of country names that are NA since they are not official countries
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#12 B.5 Add a few test cases 
+
+outofpocket_per_capita_2017 %>% filter(Country_Code == 'AFG') %>% select('outofpocket_per_capita_2017') == all_data %>% filter(Country_Code == 'AFG') %>% select('outofpocket_per_capita_2017')
+
+outofpocket_per_capita_2017 %>% filter(Country_Code == 'DZA') %>% select('outofpocket_per_capita_2017') == all_data %>% filter(Country_Code == 'DZA') %>% select('outofpocket_per_capita_2017')
+
+
+outofpocket_per_capita_2017 %>% filter(Country_Code == 'BTN') %>% select('outofpocket_per_capita_2017') == all_data %>% filter(Country_Code == 'BTN') %>% select('outofpocket_per_capita_2017')
+
+outofpocket_per_capita_2017 %>% filter(Country_Code == 'GHA') %>% select('outofpocket_per_capita_2017') == all_data %>% filter(Country_Code == 'GHA') %>% select('outofpocket_per_capita_2017')
+
+outofpocket_per_capita_2017 %>% filter(Country_Code == 'IRL') %>% select('outofpocket_per_capita_2017') == all_data %>% filter(Country_Code == 'IRL') %>% select('outofpocket_per_capita_2017')
+
+outofpocket_per_capita_2017 %>% filter(Country_Code == 'KGZ') %>% select('outofpocket_per_capita_2017') == all_data %>% filter(Country_Code == 'KGZ') %>% select('outofpocket_per_capita_2017')
+```
+
+# 13 Acute care beds OECD
+
+```{r}
+# 13 A.1 Import the acute care beds file from OECD
+acute_care_beds <- read_csv("acute_care_beds.csv")
+
+# 13 A.2 Change the column name of 'COU' into 'Country_Code'
+colnames(acute_care_beds)[which(names(acute_care_beds) == "COU")] <- "Country_Code"
+
+# 13 A.3 Filter and select necessary rows and columns to get latest date information on beds 
+
+acute_beds_OECD_2016 <- acute_care_beds %>% group_by(Country_Code) %>% filter(Year == 2016, Variable == 'Curative (acute) care beds', Measure == 'Per 1 000 population') %>% select(Country_Code, Value)
+
+# 13 A.4 Use the full_join function with the all data to add the acute_beds_OECD_2016 beds
+
+all_data <- full_join(all_data, acute_beds_OECD_2016, by = 'Country_Code')
+
+# 13 A.5 Change the column name of 'Value' into 'acute_beds_OECD_2016_per1000'
+
+colnames(all_data)[which(names(all_data) == "Value")] <- "acute_beds_OECD_2016_per1000"
+
+# 13 A.6 Add a few test cases
+
+acute_beds_OECD_2016 %>% filter(Country_Code == 'AUT') %>% ungroup() %>% select(Value) == all_data %>% filter(Country_Code == 'AUT') %>% select('acute_beds_OECD_2016_per1000')
+
+acute_beds_OECD_2016 %>% filter(Country_Code == 'BEL') %>% ungroup() %>% select(Value) == all_data %>% filter(Country_Code == 'BEL') %>% select('acute_beds_OECD_2016_per1000')
+
+acute_beds_OECD_2016 %>% filter(Country_Code == 'GRC') %>% ungroup() %>% select(Value) == all_data %>% filter(Country_Code == 'GRC') %>% select('acute_beds_OECD_2016_per1000')
+
+acute_beds_OECD_2016 %>% filter(Country_Code == 'ISL') %>% ungroup() %>% select(Value) == all_data %>% filter(Country_Code == 'ISL') %>% select('acute_beds_OECD_2016_per1000')
+
+acute_beds_OECD_2016 %>% filter(Country_Code == 'JPN') %>% ungroup() %>% select(Value) == all_data %>% filter(Country_Code == 'JPN') %>% select('acute_beds_OECD_2016_per1000')
+
+                      
+```
+
+# 14 A) Had Mers
+
+```{r}
+#14 A.1 Import the Mers file
+Countries_with_MERS <- read_excel("Countries_with_MERSSARS.xlsx")
+
+#14 A.2 Change the column variable name from 'Country Code' to 'Country_Code'
+
+colnames(Countries_with_MERS)[which(names(Countries_with_MERS) == "Country Code")] <- "Country_Code"
+
+#14 A.3 Use the full join function to add mers cases to all_data
+
+all_data <- full_join(all_data, select(Countries_with_MERS, 'Country_Code', 'Mers_Cases'), by = 'Country_Code')
+
+#14 A.4 Add a few test cases
+
+Countries_with_MERS %>% filter(Country_Code == 'AUT') %>% select(Mers_Cases) == all_data %>% filter(Country_Code == 'AUT') %>% select('Mers_Cases')
+
+Countries_with_MERS %>% filter(Country_Code == 'JOR') %>% select(Mers_Cases) == all_data %>% filter(Country_Code == 'JOR') %>% select('Mers_Cases')
+
+Countries_with_MERS %>% filter(Country_Code == 'KOR') %>% select(Mers_Cases) == all_data %>% filter(Country_Code == 'KOR') %>% select('Mers_Cases')
+
+Countries_with_MERS %>% filter(Country_Code == 'SAU') %>% select(Mers_Cases) == all_data %>% filter(Country_Code == 'SAU') %>% select('Mers_Cases')
+
+#14 A.5 Turn all NAs into zero
+
+all_data$Mers_Cases[is.na(all_data$Mers_Cases)] <- 0
+
+
+```
+
+# 14 B) Had Sars
+
+```{r}
+#14 B.1 Import the Sars file
+Countries_with_SARS <- read_excel("Countries_with_MERSSARS.xlsx")
+
+#14 B.2 Change the column variable name from 'Country Code' to 'Country_Code'
+
+colnames(Countries_with_SARS)[which(names(Countries_with_SARS) == "Country Code")] <- "Country_Code"
+
+#14 B.3 Use the full join function to add mers cases to all_data
+
+all_data <- full_join(all_data, select(Countries_with_SARS, 'Country_Code', 'SARS_Cases'), by = 'Country_Code')
+
+#14. B.4 Add a few test cases
+
+Countries_with_SARS %>% filter(Country_Code == 'CHN') %>% select(SARS_Cases) == all_data %>% filter(Country_Code == 'CHN') %>% select('SARS_Cases')
+
+Countries_with_SARS %>% filter(Country_Code == 'CAN') %>% select(SARS_Cases) == all_data %>% filter(Country_Code == 'CAN') %>% select('SARS_Cases')
+
+Countries_with_SARS %>% filter(Country_Code == 'TWN') %>% select(SARS_Cases) == all_data %>% filter(Country_Code == 'TWN') %>% select('SARS_Cases')
+
+Countries_with_SARS %>% filter(Country_Code == 'MAC') %>% select(SARS_Cases) == all_data %>% filter(Country_Code == 'MAC') %>% select('SARS_Cases')
+
+all_data$SARS_Cases[is.na(all_data$SARS_Cases)] <- 0
+
+
+
+
+
+```
+
+#15 A) total number of cases (Needs to be periodically updated from website: https://ourworldindata.org/covid-cases)
+
+```{r}
+# 15 A.1 Import the total number of cases file
+#total_cases_covid_19 <- read_csv("total-cases-covid-19-7-13.csv")
+total_cases_covid_19 <- read_csv("Covid_cases_update.csv")
+
+
+#15 A.2 Change the column variable name from 'Code' to 'Country_Code' and the cases name too
+
+colnames(total_cases_covid_19)[which(names(total_cases_covid_19) == "iso_code")] <- "Country_Code"
+
+
+
+#15 A.3 Necessary filtering and grouping by Country_Code to get the latest case count. This code only selects the last date of cumulative cases recorded for each country.
+total_cases_covid_19 <- total_cases_covid_19 %>% group_by(Country_Code) %>% filter(date == tail(date, n = 1)) %>% ungroup() %>% select(Country_Code, total_cases)
+
+
+
+#15 A.4 Change the Kosovo country name from OWID-KOS to KOS
+total_cases_covid_19$Country_Code[total_cases_covid_19$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+#15 A.5 Get rid of all NA in Country_Code in total_cases_covid_19 
+
+total_cases_covid_19 <- total_cases_covid_19 %>% filter(!is.na(Country_Code))
+
+#15 A.6 Add the total_cases to the variable column of all_data
+
+all_data <- full_join(all_data, total_cases_covid_19, by = 'Country_Code')
+
+#15 A.8 Get rid of all NA in Country_Name in all_data
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#15 A.9 HKG total cases: https://coronavirus.jhu.edu/map.html 
+
+all_data$total_cases[all_data$Country_Code == 'HKG'] = 1106
+
+#15 A.10 Add some cases
+
+total_cases_covid_19 %>% filter(Country_Code == 'IND') %>% select(total_cases) == all_data %>% filter(Country_Code == 'IND') %>% select('total_cases')
+
+total_cases_covid_19 %>% filter(Country_Code == 'IRQ') %>% select(total_cases) == all_data %>% filter(Country_Code == 'IRQ') %>% select('total_cases')
+
+total_cases_covid_19 %>% filter(Country_Code == 'NGA') %>% select(total_cases) == all_data %>% filter(Country_Code == 'NGA') %>% select('total_cases')
+
+total_cases_covid_19 %>% filter(Country_Code == 'SVN') %>% select(total_cases) == all_data %>% filter(Country_Code == 'SVN') %>% select('total_cases')
+
+total_cases_covid_19 %>% filter(Country_Code == 'USA') %>% select(total_cases) == all_data %>% filter(Country_Code == 'USA') %>% select('total_cases')
+
+
+```
+
+#15 B) total number of deaths
+
+```{r}
+#15 B.1 Import the total number of deaths file
+#total_deaths_covid_19 <- read_csv("total-deaths-covid-19-7-13.csv")
+
+total_deaths_covid_19 <- read_csv("new_covid_deaths.csv")
+
+#15 B.2 Change the column variable name from 'Code' to 'Country_Code' and the cases name too
+
+colnames(total_deaths_covid_19)[which(names(total_deaths_covid_19) == "iso_code")] <- "Country_Code"
+
+#15 B.3 Necessary filtering and grouping by Country_Code to get the latest death count
+total_deaths_covid_19 <- total_deaths_covid_19 %>% group_by(Country_Code) %>% filter(date == tail(date, n = 1)) %>% ungroup() %>% select(Country_Code, total_deaths)
+
+
+#15 B.4 Change the Kosovo country name from OWID-KOS to KOS
+total_deaths_covid_19$Country_Code[total_deaths_covid_19$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+#15 B.5 Get rid of all NA in Country_Code in total_cases_covid_19 
+
+total_deaths_covid_19 <- total_deaths_covid_19 %>% filter(!is.na(Country_Code))
+
+#15 B.6 Add the total_deaths to the variable column of all_data
+
+all_data <- full_join(all_data, total_deaths_covid_19, by = 'Country_Code')
+
+#15 B.7 Get rid of all NA in Country_Name in all_data
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#15 B.8 HKG total total deaths https://coronavirus.jhu.edu/map.html 
+
+all_data$total_deaths[all_data$Country_Code == 'HKG'] = 4
+
+#15 B.9 Add some cases
+
+total_deaths_covid_19 %>% filter(Country_Code == 'IND') %>% select(total_deaths) == all_data %>% filter(Country_Code == 'IND') %>% select('total_deaths')
+
+total_deaths_covid_19 %>% filter(Country_Code == 'AFG') %>% select(total_deaths) == all_data %>% filter(Country_Code == 'AFG') %>% select('total_deaths')
+
+total_deaths_covid_19 %>% filter(Country_Code == 'USA') %>% select(total_deaths) == all_data %>% filter(Country_Code == 'USA') %>% select('total_deaths')
+
+total_deaths_covid_19 %>% filter(Country_Code == 'DZA') %>% select(total_deaths) == all_data %>% filter(Country_Code == 'DZA') %>% select('total_deaths')
+
+```
+
+# 16 A) Date of First Case
+
+```{r}
+# 16 A.1 Import the file of first date of case
+
+date_first_case <- read_csv("daily-covid-cases-deaths-7-13.csv")
+
+#16 A.2 Change the column variable name from 'Code' to 'Country_Code' and the cases name too
+
+colnames(date_first_case)[which(names(date_first_case) == "Code")] <- "Country_Code"
+
+colnames(date_first_case)[which(names(date_first_case) == "Daily confirmed cases (cases)")] <- "cases"
+
+#16 A.3 Get the first date of the first case for each country 
+
+date_first_case <- date_first_case %>% group_by(Country_Code) %>% filter(cases != 0)%>% filter(Date == head(Date, n = 1)) %>% ungroup() %>% select(Country_Code, Date)
+
+
+#16 A.4 Change the Kosovo country name from OWID-KOS to KOS
+date_first_case$Country_Code[date_first_case$Date == '16-Mar-20' & date_first_case$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+#16 A.5 Get rid of all NAs in Country_Code
+date_first_case <- date_first_case %>% filter(!is.na(Country_Code))
+
+#16 A.6 Change the column name of 'Date' to 'first_date_case'
+colnames(date_first_case)[which(names(date_first_case) == "Date")] <- "date_first_case"
+
+
+#16 A.7 Do a full_join function and add variable to all_data
+all_data <- full_join(all_data, date_first_case, by = 'Country_Code')
+
+#16 A.8 Get rid of all NA in Country_Name in all_data
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#16 A.9 HKG date of first case: https://www.scmp.com/news/hong-kong/health-environment/article/3047193/china-coronavirus-first-case-confirmed-hong-kong
+
+all_data$date_first_case[all_data$Country_Code == 'HKG'] = '23-Jan-20'
+
+#16 A.10 Add a few test cases 
+
+date_first_case %>% filter(Country_Code == 'USA') %>% select(date_first_case) == all_data %>% filter(Country_Code == 'USA') %>% select('date_first_case')
+
+date_first_case %>% filter(Country_Code == 'AFG') %>% select(date_first_case) == all_data %>% filter(Country_Code == 'AFG') %>% select('date_first_case')
+
+date_first_case %>% filter(Country_Code == 'KOR') %>% select(date_first_case) == all_data %>% filter(Country_Code == 'KOR') %>% select('date_first_case')
+
+date_first_case %>% filter(Country_Code == 'AGO') %>% select(date_first_case) == all_data %>% filter(Country_Code == 'AGO') %>% select('date_first_case')
+
+date_first_case %>% filter(Country_Code == 'AUS') %>% select(date_first_case) == all_data %>% filter(Country_Code == 'AUS') %>% select('date_first_case')
+
+```
+
+
+# 16 B) Date of First Death
+
+```{r}
+#16 B.1 Import the file of first date of death
+date_first_death <- read_csv("daily-covid-cases-deaths-7-13.csv")
+
+#16 B.2 Change the column variable name from 'Code' to 'Country_Code' and the deaths name too
+
+colnames(date_first_death)[which(names(date_first_death) == "Code")] <- "Country_Code"
+
+colnames(date_first_death)[which(names(date_first_death) == "Daily confirmed deaths (deaths)")] <- "date_first_death"
+
+#16 B.3 Get the first date of the first date of death for each country 
+
+date_first_death <- date_first_death %>% filter(date_first_death != 0) %>% group_by(Country_Code) %>% filter(Date == head(Date, n = 1)) %>% ungroup() %>% select(Country_Code, Date)
+
+
+#16 B.4 Change the Kosovo country name from OWID-KOS to KOS
+date_first_death$Country_Code[date_first_death$Date == '23-Mar-20' & date_first_death$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+#16 B.5 Get rid of all NAs in Country_Code
+date_first_death <- date_first_death %>% filter(!is.na(Country_Code))
+
+#16 B.6 Change the column name of 'Date' to 'first_date_case'
+colnames(date_first_death)[which(names(date_first_death) == "Date")] <- "date_first_death"
+
+#16 B.7 Do a full_join function and add variable to all_data
+all_data <- full_join(all_data, date_first_death, by = 'Country_Code')
+
+#16 B.8 Get rid of all NA in Country_Name in all_data
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+#16 B.9 HKG date of first death:https://www.straitstimes.com/asia/east-asia/hong-kong-reports-first-death-from-coronavirus
+
+all_data$date_first_death[all_data$Country_Code == 'HKG'] = '4-Feb-20'
+
+#16 B.10 Add a few test cases 
+
+date_first_death %>% filter(Country_Code == 'AFG') %>% select(date_first_death) == all_data %>% filter(Country_Code == 'AFG') %>% select('date_first_death')
+
+date_first_death %>% filter(Country_Code == 'USA') %>% select(date_first_death) == all_data %>% filter(Country_Code == 'USA') %>% select('date_first_death')
+
+date_first_death %>% filter(Country_Code == 'MEX') %>% select(date_first_death) == all_data %>% filter(Country_Code == 'MEX') %>% select('date_first_death')
+
+date_first_death %>% filter(Country_Code == 'KOR') %>% select(date_first_death) == all_data %>% filter(Country_Code == 'KOR') %>% select('date_first_death')
+
+date_first_death %>% filter(Country_Code == 'ZWE') %>% select(date_first_death) == all_data %>% filter(Country_Code == 'ZWE') %>% select('date_first_death')
+
+```
+
+
+#17 Date when daily case/death was maximum (3- airtable) and also max daily case per 10,000 inhabitants (Will need to be regularly updated from website: https://ourworldindata.org/grapher/daily-covid-cases-deaths)
+```{r}
+#17.1 Import the daily cases file
+max_daily_case <- read_csv("daily-covid-cases-deaths-8-6.csv")
+
+#17.2 Change the column names
+
+colnames(max_daily_case)[which(names(max_daily_case) == "Code")] <- "Country_Code"
+
+colnames(max_daily_case)[which(names(max_daily_case) == "Daily confirmed cases (cases)")] <- "daily_cases"
+
+colnames(max_daily_case)[which(names(max_daily_case) == "Daily confirmed deaths (deaths)")] <- "daily_deaths"
+
+
+#17.3 Find out the date of the max daily case and max daily death for each country
+
+max_daily_death <- max_daily_case %>% group_by(Country_Code) %>% filter(daily_deaths == max(daily_deaths, na.rm = TRUE)) %>% group_by(Country_Code) %>% filter(Date == head(Date, n = 1))
+
+
+max_daily_case <- max_daily_case %>% group_by(Country_Code) %>% filter(daily_cases == max(daily_cases, na.rm = TRUE)) %>% group_by(Country_Code) %>% filter(Date == head(Date, n=1))
+
+
+
+#17.4 Change the Kosovo country name from OWID-KOS to KOS
+max_daily_case$Country_Code[max_daily_case$Date == 'Apr 21, 2020' & max_daily_case$Country_Code == 'OWID_KOS'] <- 'XKX'
+
+max_daily_death$Country_Code[max_daily_death$Date == 'May 5, 2020' & max_daily_death$Country_Code == 'OWID_KOS'] <- 'XKX' 
+
+#17.5 Get rid of all NAs in Country_Code
+max_daily_case <- max_daily_case %>% filter(!is.na(Country_Code))
+
+max_daily_death <- max_daily_death %>% filter(!is.na(Country_Code))
+
+#17.6 Change the column name of 'Date' to 'date_max_daily_case'
+colnames(max_daily_case)[which(names(max_daily_case) == "Date")] <- "date_max_daily_case"
+
+colnames(max_daily_death)[which(names(max_daily_death) == "Date")] <- "date_max_daily_death"
+
+
+#17.7 Do a full_join function and add variable to all_data
+all_data <- full_join(all_data, select(max_daily_case, Country_Code, date_max_daily_case), by = 'Country_Code')
+
+all_data <- full_join(all_data, select(max_daily_death, Country_Code, date_max_daily_death), by = 'Country_Code')
+
+all_data <- full_join(all_data, select(max_daily_case, Country_Code, daily_cases), by = 'Country_Code')
+
+colnames(all_data)[which(names(all_data) == "daily_cases")] <- "max_daily_case"
+
+all_data <- full_join(all_data, select(max_daily_death, Country_Code, daily_deaths), by = 'Country_Code')
+
+colnames(all_data)[which(names(all_data) == "daily_deaths")] <- "max_daily_deaths"
+
+all_data$max_daily_case <- all_data$max_daily_case/1000
+
+all_data$max_daily_deaths <- all_data$max_daily_deaths/1000
+
+colnames(all_data)[which(names(all_data) == "max_daily_case")] <- "max_daily_caseper1000inhab"
+
+colnames(all_data)[which(names(all_data) == "max_daily_deaths")] <- "max_daily_deathper1000inhab"
+
+
+#17.8 Get rid of all NA in Country_Name in all_data
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+
+
+#17.9 HKG date max daily case: https://www.statista.com/statistics/1105425/hong-kong-novel-coronavirus-covid19-confirmed-death-recovered-trend/
+
+all_data$date_max_daily_case[all_data$Country_Code == 'HKG'] = 'March 27, 2020'
+
+
+#17.9 Add a few test cases 
+
+max_daily_case %>% filter(Country_Code == 'AFG') %>% ungroup() %>% select(date_max_daily_case) == all_data %>% filter(Country_Code == 'AFG') %>% select('date_max_daily_case')
+
+max_daily_case %>% filter(Country_Code == 'AGO') %>% ungroup() %>% select(date_max_daily_case) == all_data %>% filter(Country_Code == 'AGO') %>% select('date_max_daily_case')
+
+max_daily_case %>% filter(Country_Code == 'ATG') %>% ungroup() %>% select(date_max_daily_case) == all_data %>% filter(Country_Code == 'ATG') %>% select('date_max_daily_case')
+
+```
+
+
+
+#18 Calculating Variables: Cases per 1,000 inhabitants, deaths per 100000 inhabitants, deaths per case, tests per 100000 inhabitants, max stringency date - first case date, Mers + Sars > 10
+
+```{r}
+#18.1 Cases per 100000 inhabitants
+
+all_data <- all_data %>% mutate(cases_per_100000inhabitants = (total_cases * 100000)/(pop_2020))
+
+#18.2 Deaths per 100000 inhabitants
+
+all_data <- all_data %>% mutate(deaths_per_100000inhabitants = (total_deaths * 100000)/(pop_2020))
+
+#18.3 Deaths per Case (Case Fatality Ratio)
+
+all_data <- all_data %>% mutate(case_fatality_ratio = total_deaths/total_cases)
+
+#18.4 Tests per 100,000 inhabitants
+
+all_data <- all_data %>% mutate(tests_per_100000inhabitants = (sum_tests * 100000)/(pop_2020))
+
+#18.5 Mers and Sars Cases (Qualitative Data)
+
+all_data <- all_data %>% mutate(mers_sars_cases_over10 = case_when(Mers_Cases + SARS_Cases > 10 ~ 'Yes', TRUE ~ 'No'))
+
+#18.6 The days from the first case to the date of max stringency index 
+
+all_data <- all_data %>% mutate(days_from_firstcase_maxstringidx = mdy(all_data$earliest_max_string_date) - mdy(all_data$date_first_case))
+
+#18.7 Days from first case to date of max daily case 
+
+all_data <- all_data %>% mutate(days_from_firstcase_maxdailycase = mdy(all_data$date_max_daily_case) - mdy(all_data$date_first_case))
+
+#18.8 Days from first case to date of max daily death 
+
+all_data <- all_data %>% mutate(days_from_firstcase_maxdailydeath = mdy(all_data$date_max_daily_death) - mdy(all_data$date_first_case))
+
+#18.9 Speed of max stringency index over time from first case to maximum stringency index
+
+all_data$days_from_firstcase_maxstringidx <- as.numeric(all_data$days_from_firstcase_maxstringidx, units = "days")
+
+all_data <- all_data %>% mutate(max_string_index_over_time_to_max = max_stringency_index/days_from_firstcase_maxstringidx)
+
+#18.10 Speed of max cases per inhab over time from first case to date of max daily cases 
+
+all_data$days_from_firstcase_maxdailycase <- as.numeric(all_data$days_from_firstcase_maxdailycase, units = "days")
+
+all_data <- all_data %>% mutate(max_daily_case_perinhab_over_time_to_maxcase = max_daily_caseper1000inhab/days_from_firstcase_maxdailycase)
+
+#18.11 Speed of max deaths per inhab over time from first case to date of max daily deaths
+
+all_data$days_from_firstcase_maxdailydeath <- as.numeric(all_data$days_from_firstcase_maxdailydeath, units = "days")
+
+all_data <- all_data %>% mutate(max_daily_deaths_perinhab_over_time_tomaxdeath = max_daily_deathper1000inhab/days_from_firstcase_maxdailydeath)
+
+#18.9 date of max daily cases minus date of max string index 
+
+all_data <- all_data %>% mutate(date_max_daily_case_minus_max_string_index = mdy(all_data$date_max_daily_case) - mdy(all_data$earliest_max_string_date))
+
+```
+
+#19 Total Number of Hospital Beds by Country
+
+```{r}
+#19.1 Import the total number of hospital beds file 
+hospital_beds_per_100000_people <- read_csv("hospital-beds-per-1000-people.csv")
+
+#19.2 Change the name for column names
+
+colnames(hospital_beds_per_100000_people)[which(names(hospital_beds_per_100000_people) == "Code")] <- "Country_Code"
+
+colnames(hospital_beds_per_100000_people)[which(names(hospital_beds_per_100000_people) == "Hospital beds (per 100,000)")] <- "hospital_beds_per_100000"
+
+#19.3 Filter the hospital beds datasheet to only select the most recent data, which is from 2015. 
+
+hospital_beds_per_100000_people <- hospital_beds_per_100000_people %>% group_by(Country_Code) %>% filter(Year == tail(Year, n = 1)) %>% ungroup() %>% filter(Year >= 2015) %>% select(Country_Code, hospital_beds_per_100000)
+
+#19.4 Do the full_join and add to all_data
+
+all_data <- full_join(all_data, hospital_beds_per_100000_people, by = 'Country_Code')
+
+
+
+
+
+```
+
+#20 Obesity
+https://ourworldindata.org/obesity
+
+
+```{r}
+#20.1 Import the obesity file
+obese <- read_csv("share-of-adults-defined-as-obese.csv")
+
+#20.2 Change the name for column names
+
+colnames(obese)[which(names(obese) == "Share of adults who are obese (%)")] <- "obesity_prevalnece"
+
+colnames(obese)[which(names(obese) == "Code")] <- "Country_Code"
+
+#20.3 Filter the obese datasheet  
+
+obese <- obese %>% group_by(Country_Code) %>% filter(Year == tail(Year, n = 1)) %>% ungroup() %>% select(Country_Code, obesity_prevalnece)
+
+#20.4 remove all the NA country codes
+
+obese <- obese %>% filter(!is.na(Country_Code))
+
+#20.5 Do a full join with the all_data
+
+all_data <- full_join(all_data, obese, by = 'Country_Code')
+
+
+```
+
+
+#21 Diabetes prevalence
+
+https://data.worldbank.org/indicator/SH.STA.DIAB.ZS
+
+```{r}
+#21.1 Import the diabetes prevalence file 
+diabetes_prevalence <- read_csv("diabetes_prevalence/diabetes_prevalence.csv", 
+skip = 3)
+
+#21.2 Change a few column names
+colnames(diabetes_prevalence)[which(names(diabetes_prevalence) == "Country Code")] <- "Country_Code"
+
+colnames(diabetes_prevalence)[which(names(diabetes_prevalence) == "2019")] <- "diabetes_prevalence"
+
+#21.3 Select only necessary columns and then do a full join
+
+diabetes_prevalence <- diabetes_prevalence %>% select(Country_Code, diabetes_prevalence)
+
+
+all_data <- full_join(all_data, diabetes_prevalence, by = "Country_Code")
+
+#21.5 Get rid of nas for the country name
+
+all_data <- all_data %>% filter(!is.na(Country_Name))
+
+
+
+
+```
+
+#22 High, Low compared to median 
+
+```{r}
+#22.1 Create two new columns of the medians of cases per inhab and deaths per inhab 
+
+median_cases <- median(all_data$cases_per_100000inhabitants, na.rm = TRUE)
+median_deaths <- median(all_data$deaths_per_100000inhabitants, na.rm = TRUE)
+
+#22.2 Make two new variable columns with cases and deaths as high, low or high, high etc. 
+
+all_data <- all_data %>% mutate(case_high_low = case_when(cases_per_100000inhabitants > median_cases ~ 'Case High', cases_per_100000inhabitants < median_cases ~ 'Case Low'))
+
+all_data <- all_data %>% mutate(death_high_low = case_when(deaths_per_100000inhabitants > median_deaths ~ 'Death High', deaths_per_100000inhabitants < median_deaths ~ 'Death Low'))
+
+#22.3 Create new column that indicated whether cases and deaths is high high to low low 
+
+all_data <- all_data %>% mutate(case_death_high_low = case_when(cases_per_100000inhabitants > median_cases & deaths_per_100000inhabitants > median_deaths ~ 'Case_High Death_High', cases_per_100000inhabitants < median_cases & deaths_per_100000inhabitants > median_deaths ~ 'Case_Low Death_High',cases_per_100000inhabitants > median_cases & deaths_per_100000inhabitants < median_deaths ~ 'Case_High Death_Low', cases_per_100000inhabitants < median_cases & deaths_per_100000inhabitants < median_deaths ~ 'Case_Low Death_Low'))
+
+```
+
+#23 Preparing for the PCA graphs 
+
+```{r}
+
+#23.1 Make a new variable column that takes sum of Sars and Mers cases for each country. This will be one of the variables used in the PCA.
+
+all_data <- all_data %>% mutate(total_SARS_MERS = Mers_Cases + SARS_Cases)
+
+#23.2 Make a copy of all_data into PCA_alldata  
+PCA_alldata <- all_data 
+
+
+#23.3 Select only the variables that are in the active_variables vector. Below are four colums for four different PCA's. 1) All Active Variables With Acute Bed (Less Countries b/c of more NA's due to the acute beds variable), 2) Less Active Variables With Acute Bed (Less Countries b/c of more NA's due to the acute beds variable), 3) All Active Variables With No Acute Beds (More Countries b/c of less NA's), 4) Less Active Variables With No Acute Bed (More Countries b/c of less NA's) #note: Less Active Variables: No GDP_2018, female_prop_2018, max_stringency_index, total_SARS_MERS, smoking_prevalence_2016
+
+
+#1) All Variables With (Acute Beds)  
+#active_variables_plus_casedeath <- c("Country_Name", "GDP_2018", "MedianAge_2020", "smoking_prevalence_2016", "freeidx_2018", "female_prop_2018", "max_stringency_index", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "acute_beds_OECD_2016_per1000", "tests_per_100000inhabitants", "total_SARS_MERS", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence", "cases_per_100000inhabitants", "deaths_per_100000inhabitants")
+
+#2) Less Active Variables With (Acute Beds)
+
+#active_variables_plus_casedeath <- c("Country_Name", "MedianAge_2020", "freeidx_2018", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "acute_beds_OECD_2016_per1000", "tests_per_100000inhabitants", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence", "cases_per_100000inhabitants", "deaths_per_100000inhabitants")
+
+#3) All variables without (Acute Beds) 
+#active_variables_plus_casedeath <- c("Country_Name", "GDP_2018", "MedianAge_2020", "smoking_prevalence_2016", "freeidx_2018", "female_prop_2018", "max_stringency_index", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "tests_per_100000inhabitants", "total_SARS_MERS", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence", "cases_per_100000inhabitants", "deaths_per_100000inhabitants")
+
+# 4) Less Active Variables (Without Acute Beds)
+active_variables_plus_casedeath <- c("Country_Name", "MedianAge_2020", "freeidx_2018", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "tests_per_100000inhabitants", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence", "cases_per_100000inhabitants", "deaths_per_100000inhabitants")
+
+
+
+PCA_alldata <- PCA_alldata %>% select(all_of(active_variables_plus_casedeath))
+
+#23.4 Filter out the countries that have NA values 
+
+PCA_alldata <- na.omit(PCA_alldata)
+
+
+#23.4 Calculate the medians of cases per inhab and deaths per inhab for PCA_alldata 
+
+PCA_median_cases <- median(PCA_alldata$cases_per_100000inhabitants, na.rm = TRUE)
+PCA_median_deaths <- median(PCA_alldata$deaths_per_100000inhabitants, na.rm = TRUE)
+
+#23.5 Make two new variable columns with cases and deaths as high, low or high, high etc. These variable columns will later be used to categorize groups during the PCA Analysis.  
+
+PCA_alldata <- PCA_alldata %>% mutate(case_high_low = case_when(cases_per_100000inhabitants > PCA_median_cases ~ 'Case High', cases_per_100000inhabitants < PCA_median_cases ~ 'Case Low'))
+
+PCA_alldata <- PCA_alldata %>% mutate(death_high_low = case_when(deaths_per_100000inhabitants > PCA_median_deaths ~ 'Death High', deaths_per_100000inhabitants < PCA_median_deaths ~ 'Death Low'))
+
+#23.6 Create new column that indicated whether cases and deaths is high high to low low. This variable column will later be used to categorize groups during the PCA Analysis.
+
+PCA_alldata <- PCA_alldata %>% mutate(case_death_high_low = case_when(cases_per_100000inhabitants > PCA_median_cases & deaths_per_100000inhabitants > PCA_median_deaths ~ 'Case_High Death_High', cases_per_100000inhabitants < PCA_median_cases & deaths_per_100000inhabitants > PCA_median_deaths ~ 'Case_Low Death_High',cases_per_100000inhabitants > PCA_median_cases & deaths_per_100000inhabitants < PCA_median_deaths ~ 'Case_High Death_Low', cases_per_100000inhabitants < PCA_median_cases & deaths_per_100000inhabitants < PCA_median_deaths ~ 'Case_Low Death_Low'))
+
+
+
+#23.7 Make the country name a row name
+PCA_alldata <- column_to_rownames(PCA_alldata, "Country_Name")
+
+
+#23.8 Split into two dataframes of PCA_alldata_active and PCA_supp  
+
+#1) All Variables With (Acute Beds)
+
+#PCA_alldata_active <- PCA_alldata %>% select("GDP_2018", "MedianAge_2020", "smoking_prevalence_2016", "freeidx_2018", "female_prop_2018", "max_stringency_index", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "acute_beds_OECD_2016_per1000", "tests_per_100000inhabitants", "total_SARS_MERS", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence")
+
+
+#2) Less Active Variables With (Acute Beds)
+#PCA_alldata_active <- PCA_alldata %>% select("MedianAge_2020", "freeidx_2018", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "acute_beds_OECD_2016_per1000", "tests_per_100000inhabitants", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence")
+
+
+#3) All variables without (Acute Beds) 
+#PCA_alldata_active <- PCA_alldata %>% select("GDP_2018", "MedianAge_2020", "smoking_prevalence_2016", "freeidx_2018", "female_prop_2018", "max_stringency_index", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "tests_per_100000inhabitants", "total_SARS_MERS", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence")
+
+#4) Less Active Variables (Without Acute Beds)
+PCA_alldata_active <- PCA_alldata %>% select("MedianAge_2020", "freeidx_2018", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "tests_per_100000inhabitants", "date_max_daily_case_minus_max_string_index", "hospital_beds_per_100000", "obesity_prevalnece", "diabetes_prevalence")
+
+#for fun practice 
+
+#PCA_alldata_active <- PCA_alldata %>% select("MedianAge_2020", "public_health_2017", "GNI_per_capita_2018", "outofpocket_per_capita_2017", "tests_per_100000inhabitants", "hospital_beds_per_100000", "obesity_prevalnece")
+
+PCA_supp <- PCA_alldata %>% select("case_high_low", "death_high_low", "case_death_high_low")
+
+
+```
+
+#24 PCA Graphs- Scree Plot, Contribution of PC1 and PC2, variable contributions, individual contributions, three graphs based on groups high, low
+
+```{r}
+#24.1 Turn calendar date unit into numeric units. Otherwise, R doesn't perform the PCA analysis since it strictly requires numerical units.
+
+PCA_alldata_active$date_max_daily_case_minus_max_string_index <- as.numeric(PCA_alldata_active$date_max_daily_case_minus_max_string_index, units = "days")
+
+#24.2 Perform the PCA
+
+res.pca <- PCA(PCA_alldata_active, graph = TRUE)
+
+#24.2 Produce the screeplot 
+
+PCA_screeplot <- fviz_screeplot(res.pca, addlabels = TRUE, ylim = c(0, 45))
+PCA_screeplot
+
+#The 1-4 numerical labels should correspond to the same label as the 4 PCA types when saving the plots as a pdf 
+
+#1) All variables with acute bed  
+#ggsave("PCA_screeplot_allvar_withAcuteBed.pdf", plot = PCA_screeplot, scale = 4, limitsize = FALSE)
+
+#2) Less Variables with acute bed
+#ggsave("PCA_screeplot_lessvar_withAcuteBed.pdf", plot = PCA_screeplot, scale = 2, limitsize = FALSE)
+
+#3) All Variables Without Acute Bed
+#ggsave("PCA_screeplot_allvar_withoutAcuteBed.pdf", plot = PCA_screeplot, scale = 3, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("PCA_screeplot_lessvar_withoutAcuteBed.pdf", plot = PCA_screeplot, scale = 3, limitsize = FALSE)
+
+
+#24.3 Contributions of variables to PC1 and to PC2
+
+PC1contrib <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 10)
+PC1contrib
+#1) All variables with acute bed  
+#ggsave("PC1contrib_allvar_withAcuteBed.pdf", plot = PC1contrib, scale = 4, limitsize = FALSE)
+
+#2) Less Varibles with acute bed 
+#ggsave("PC1contrib_lessvar_withAcuteBed.pdf", plot = PC1contrib, scale = 2, limitsize = FALSE)
+
+#3) All Variables Without Acute Bed
+
+#ggsave("PC1contrib_allvar_withoutAcuteBed.pdf", plot = PC1contrib, scale = 4, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("PC1contrib_lessvar_withoutAcuteBed.pdf", plot = PC1contrib, scale = 3, limitsize = FALSE)
+
+
+
+
+PC2contrib <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 10)
+PC2contrib
+#1) All Variables With Acute Bed
+#ggsave("PC2contrib_allvar_withAcuteBed.pdf", plot = PC2contrib, scale = 4, limitsize = FALSE)
+
+#2) Less Variables With Acute Bed
+#ggsave("PC2contrib_lessvar_withAcuteBed.pdf", plot = PC2contrib, scale = 2, limitsize = FALSE)
+
+#3) All Variables Without Acute Bed
+#ggsave("PC2contrib_allvar_withoutAcuteBed.pdf", plot = PC2contrib, scale = 4, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("PC2contrib_lessvar_withoutAcuteBed.pdf", plot = PC2contrib, scale = 4, limitsize = FALSE)
+
+#24.4 Variable Contributions for dimensions 1 and 2
+PCA_var_contribution <- fviz_pca_var(res.pca, col.var = "contrib",
+                                          gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+                                          repel = TRUE, # Avoid text overlapping
+                                          ggtheme = theme_minimal())
+PCA_var_contribution
+#1) All Variables With Acute Bed
+#ggsave("PCA_var_contribution_allvar_withAcuteBed.pdf", plot = PCA_var_contribution, scale = 4, limitsize = FALSE)
+
+#2) Less Variables With Acute Bed
+#ggsave("PCA_var_contribution_lessvar_withAcuteBed.pdf", plot = PCA_var_contribution, scale = 2, limitsize = FALSE)
+
+#3) All Variables Without Acute Bed
+#ggsave("PCA_var_contribution_allvar_withoutAcuteBed.pdf", plot = PCA_var_contribution, scale = 3, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("PCA_var_contribution_lessvar_withoutAcuteBed.pdf", plot = PCA_var_contribution, scale = 3, limitsize = FALSE)
+
+
+#24.5 Individual Plot colored by 
+PCA_indivi_plot <- fviz_pca_ind(res.pca, col.ind = "contrib", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE # Avoid text overlapping (slow if many points)
+             )
+PCA_indivi_plot
+
+#1) All Variables With Acute Bed
+#ggsave("PCA_indivi_plot_allvar_withAcuteBed.pdf", plot = PCA_indivi_plot, scale = 4, limitsize = FALSE)
+
+#2) Less Variables With Acute Bed
+#ggsave("PCA_indivi_plot_lessvar_withAcuteBed.pdf", plot = PCA_indivi_plot, scale = 4, limitsize = FALSE)
+
+#3) All Variables Without Acute Bed
+#ggsave("PCA_indivi_plot_allvar_withoutAcuteBed.pdf", plot = PCA_indivi_plot, scale = 3, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("PCA_indivi_plot_lessvar_withoutAcuteBed.pdf", plot = PCA_indivi_plot, scale = 3, limitsize = FALSE)
+
+
+#24.6 Three graphs that will group individuals by case high_low and death high_low and both
+
+#a) Group individuals by case_high_low column variable
+plot_case_high_low <- fviz_pca_ind(res.pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = PCA_supp$case_high_low, # color by groups
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE,# Concentration ellipses
+             legend.title = "Groups"
+             )
+plot_case_high_low
+#1) All Variables With Acute Bed
+
+#ggsave("plot_case_high_low_allvar_withAcuteBed.pdf", plot = plot_case_high_low, scale = 4, limitsize = FALSE)
+
+#2) Less Variables With Acute Bed
+#ggsave("plot_case_high_low_lessvar_withAcuteBed.pdf", plot = plot_case_high_low, scale = 4, limitsize = FALSE)
+
+#3) All Variables Without Acute Bed
+#ggsave("plot_case_high_low_allvar_withoutAcuteBed.pdf", plot = plot_case_high_low, scale = 3, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("plot_case_high_low_lessvar_withoutAcuteBed.pdf", plot = plot_case_high_low, scale = 3, limitsize = FALSE)
+
+#b) Group individuals by death_high_low column variable
+plot_death_high_low <- fviz_pca_ind(res.pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = PCA_supp$death_high_low, # color by groups
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+             )
+
+plot_death_high_low
+#1) All Variables With Acute Bed
+#ggsave("plot_death_high_low_allvar_withAcuteBed.pdf", plot = plot_death_high_low, scale = 4, limitsize = FALSE)
+
+
+#2) Less Variables With Acute Bed
+
+#ggsave("plot_death_high_low_lessvar_withAcuteBed.pdf", plot = plot_death_high_low, scale = 4, limitsize = FALSE)
+
+
+#3) All Variables Without Acute Bed
+
+#ggsave("plot_death_high_low_allvar_withoutAcuteBed.pdf", plot = plot_death_high_low, scale = 3, limitsize = FALSE)
+
+#4) Less Variables Without Acute Bed
+#ggsave("plot_death_high_low_lessvar_withoutAcuteBed.pdf", plot = plot_death_high_low, scale = 3, limitsize = FALSE)
+
+
+
+
+#c) Group individuals by case_death_high_low column variable
+plot_case_death_high_low <- fviz_pca_ind(res.pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = PCA_supp$case_death_high_low, # color by groups
+             palette = c("#00AFBB", "#E7B800", "#FC4E07", "#FF9900"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+             )
+
+plot_case_death_high_low
+#1) All Variables With Acute Bed
+
+#ggsave("plot_case_death_high_low_allvar_withAcuteBed.pdf", plot = plot_case_death_high_low, scale = 4, limitsize = FALSE)
+
+
+#2) Less Variables With Acute Bed
+
+#ggsave("plot_case_death_high_low_lessvar_withAcuteBed.pdf", plot = plot_case_death_high_low, scale = 4, limitsize = FALSE)
+
+
+
+#3) All Variables Without Acute Bed
+
+#ggsave("plot_case_death_high_low_allvar_withoutAcuteBed.pdf", plot = plot_case_death_high_low, scale = 3, limitsize = FALSE)
+
+
+#4) Less Variables Without Acute Bed
+
+#ggsave("plot_case_death_high_low_lessvar_withoutAcuteBed.pdf", plot = plot_case_death_high_low, scale = 3, limitsize = FALSE)
+
+```
+
+
+B) Creating Standard Graphs
+
+#1 Filter Databases Base on Vectors from Europe and World  
+
+```{r}
+#1.1 Make a subset of all_data using a vector with European Countries
+
+
+Euro <- c("Andorra", "Albania", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria",
+                        "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France", "Georgia", "Germany",
+                        "Greece", "Greenland", "Hungary", "Iceland", "Ireland", "Italy", "Latvia", 
+                        "Liechtenstein", "Lithuania", "Malta", "Montenegro", "Netherlands", "Norway", "Poland",
+                        "Portugal", "Republic of Moldova", "Romania", "Russian Federation", "Serbia", "Slovakia",
+                        "Slovenia", "Spain", "Sweden", "Switzerland", "The former Yugoslav Republic of Macedonia",
+                        "Ukraine", "United Kingdom of Great Britain and Northern Ireland", "Kosovo")
+
+European_Countries <- all_data %>% filter(Country_Name %in% Euro)
+
+
+#1.2 Make a subset of all_data using a vector with the rest of the other countries
+
+World <- c("Andorra", "Albania", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria",
+            "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France", "Georgia", "Germany",
+            "Greece", "Greenland", "Hungary", "Iceland", "Ireland", "Italy", "Latvia", 
+            "Liechtenstein", "Lithuania", "Malta", "Montenegro", "Netherlands", "Norway", "Poland",
+            "Portugal", "Republic of Moldova", "Romania", "Russian Federation", "Serbia", "Slovakia",
+            "Slovenia", "Spain", "Sweden", "Switzerland", "The former Yugoslav Republic of Macedonia",
+            "Ukraine", "United Kingdom of Great Britain and Northern Ireland", "Kosovo", "Afghanistan", "Albania", 
+            "Argentina", "Armenia", "Australia", "Azerbaijan", "Bahrain", "Bangladesh", "Bhutan", "Bolivia (Plurinational State of)",
+            "Brazil", "Cambodia", "Canada", "Chile", "China", "China, Hong Kong Special Administrative Region",
+            "China, Macao Special Administrative Region", "Colombia", "Costa Rica", "Cuba", "Democratic People's Republic of Korea", 
+            "Dominican Republic", "Ecuador", "El Salvador", "Guam", "Guatemala", "Honduras", "India", 
+            "Indonesia", "Iran (Islamic Republic of)", "Iraq", "Israel", "Jamaica", "Japan", "Kuwait",
+            "Kyrgyzstan", "Lao People's Democratic Republic", "Lebanon", "Malaysia", "Mexico", "Mongolia", 
+            "Myanmar", "Nepal", "New Zealand", "Oman", "Pakistan", "Paraguay", "Peru", "Philippines", 
+            "Puerto Rico", "Qatar", "Republic of Korea", "Saudi Arabia", "Singapore", "Sri Lanka", 
+            "State of Palestine", "Syriab Arab Republic", "Thailand", "United Arab Emirates", 
+            "United States of America", "Uruguay", "Uzbekistan", "Venezuela (Bolivarian Republic of)",
+            "Viet Nam", "Taiwan")
+
+World_Countries<- all_data %>% filter(Country_Name %in% World)
+
+```
+
+#2 Graphs For X: cases per inhabitants and Y: CFR (Case Fatality Ratio)
+
+```{r}
+#2.1 Graph for Europe
+
+plot_cases_cfr_europe <- ggplot(European_Countries, aes(x = cases_per_100000inhabitants, y = case_fatality_ratio, label = Country_Name)) + 
+    labs(x = "Cases Per 100,000 Inhabitants", y = "Case Fatality Ratio") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6) +
+    labs("Population Size") +
+    scale_size_continuous(name="Population\nSize", limits = c(38000, 150000000), breaks= c(50000, 1000000, 10000000, 100000000, 150000000), labels = c(50000, 1000000, 10000000, 100000000, 150000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+    theme(legend.spacing.x = unit(4.0, 'mm'))
+
+plot_cases_cfr_europe
+    
+
+
+#ggsave("plot_cases_cfr_europe.pdf", plot = plot_cases_cfr_europe)
+ggsave("new_plot_cases_cfr_europe.pdf", plot = plot_cases_cfr_europe, scale = 3, limitsize = FALSE)
+
+#2.2 Graph For World
+
+plot_cases_cfr_world <- ggplot(World_Countries, aes(x = cases_per_100000inhabitants, y = case_fatality_ratio, label = Country_Name)) + 
+    labs(x = "Cases Per 100,000 Inhabitants", y = "Case Fatality Ratio") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits=c(50000, 14500000000), breaks = c(50000, 100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+    theme(legend.spacing.x = unit(4.0, 'mm'))
+
+plot_cases_cfr_world 
+
+ggsave("new_plot_cases_cfr_world.pdf", plot = plot_cases_cfr_world, scale = 3, limitsize = FALSE)
+
+
+#2.3 Graph for active variables for PCA 
+
+
+PCA_graph_data <- all_data %>% filter(Country_Name %in% (rownames(PCA_alldata)))
+
+plot_cases_cfr_PCA <- ggplot(PCA_graph_data, aes(x = cases_per_100000inhabitants, y = case_fatality_ratio, label = Country_Name)) + 
+    labs(x = "Cases Per 100,000 Inhabitants", y = "Case Fatality Ratio") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits=c(100000, 14500000000), breaks = c(100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+    theme(legend.spacing.x = unit(4.0, 'mm'))
+
+plot_cases_cfr_PCA
+
+ggsave("new_plot_cases_cfr_PCA.pdf", plot = plot_cases_cfr_PCA, scale = 3, limitsize = FALSE)
+
+
+```
+
+#3 Graphs for X: percent of population and Y: percent of cases
+
+```{r}
+#3.1 Construct new columns to get percent of world population 
+
+European_Countries <- European_Countries %>% mutate(percent_europe_pop = pop_2020/(sum(pop_2020, na.rm = TRUE)))
+
+World_Countries <- World_Countries %>% mutate(percent_world_pop = pop_2020/(sum(pop_2020, na.rm = TRUE)))
+
+PCA_graph_cases_pop <- PCA_graph_data %>% mutate(percent_PCA_pop = pop_2020/(sum(pop_2020, na.rm = TRUE)))
+
+#3.2 Construct new columns to get percent of world cases for Europe and World 
+
+European_Countries <- European_Countries %>% mutate(percent_europe_case = total_cases/(sum(total_cases, na.rm = TRUE)))
+
+World_Countries <- World_Countries %>% mutate(percent_world_case = total_cases/(sum(total_cases, na.rm = TRUE)))
+
+PCA_graph_cases_pop <- PCA_graph_cases_pop %>% mutate(percent_PCA_case = total_cases/(sum(total_cases, na.rm = TRUE)))
+
+
+
+#3.3 Make graphs for Europe and World with the percent of pop and percent of cases for Europe and World 
+
+plot_percent_cases_europe <- ggplot(European_Countries, aes(x = log(percent_europe_pop), y = log(percent_europe_case), label = Country_Name)) + 
+    labs(x = "Percent of Total European Population", y = "Percent of Total European Cases") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    geom_abline(slope = 1) +
+    scale_size_continuous(name="Population\nSize", limits = c(38000, 150000000), breaks= c(50000, 1000000, 10000000, 100000000, 150000000), labels = c(50000, 1000000, 10000000, 100000000, 150000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + theme(legend.spacing.x = unit(4.0, 'mm'))
+
+
+plot_percent_cases_europe
+
+ggsave("new_plot_percent_cases_europe.pdf", plot = plot_percent_cases_europe, scale = 3, limitsize = FALSE)
+
+
+plot_percent_cases_world <- ggplot(World_Countries, aes(x = log(percent_world_pop), y = log(percent_world_case), label = Country_Name)) + 
+labs(x = "Percent of Total World Population", y = "Percent of Total World Cases") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    geom_abline(slope = 1) +
+      scale_size_continuous(name="Population\nSize", limits=c(50000, 14500000000), breaks = c(50000, 100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+        theme(legend.spacing.x = unit(4.0, 'mm'))
+
+
+plot_percent_cases_world
+
+ggsave("new_plot_percent_cases_world.pdf", plot = plot_percent_cases_world, scale = 3, limitsize = FALSE)
+
+#Do the percent of population vs percent of cases for the PCA active variables as well 
+
+plot_percent_cases_PCA <- ggplot(PCA_graph_cases_pop, aes(x = log(percent_PCA_pop), y = log(percent_PCA_case), label = Country_Name)) + 
+labs(x = "Percent of Total Population", y = "Percent of Total Cases") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    geom_abline(slope = 1) +
+      scale_size_continuous(name="Population\nSize", limits=c(100000, 14500000000), breaks = c(100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + 
+        theme(legend.spacing.x = unit(4.0, 'mm'))
+
+    
+
+plot_percent_cases_PCA
+
+ggsave("new_plot_percent_cases_PCA.pdf", plot = plot_percent_cases_PCA, scale = 3, limitsize = FALSE)
+
+```
+
+#4 Graphs for X: percent of population and Y: percent of death
+
+```{r}
+#4.1 Construct new columns to get percent of world deaths for Europe and World 
+
+European_Countries <- European_Countries %>% mutate(percent_europe_death = total_deaths/(sum(total_deaths, na.rm = TRUE)))
+
+World_Countries <- World_Countries %>% mutate(percent_world_death = total_deaths/(sum(total_deaths, na.rm = TRUE)))
+
+PCA_graph_deaths_pop <- PCA_graph_cases_pop %>% mutate(percent_PCA_death = total_deaths/(sum(total_deaths, na.rm = TRUE)))
+
+#4.2 Make graphs for Europe and World with the percent of pop and percent of deaths for Europe and World
+
+plot_percent_deaths_europe <- ggplot(European_Countries, aes(x = log(percent_europe_pop), y = log(percent_europe_death), label = Country_Name)) + 
+    labs(x = "Percent of Total European Population", y = "Percent of Total European Death") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    geom_abline(slope = 1) +
+      scale_size_continuous(name="Population\nSize", limits = c(38000, 150000000), breaks= c(50000, 1000000, 10000000, 100000000, 150000000), labels = c(50000, 1000000, 10000000, 100000000, 150000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + theme(legend.spacing.x = unit(4.0, 'mm'))
+
+plot_percent_deaths_europe
+
+ggsave("new_plot_percent_deaths_europe.pdf", plot = plot_percent_deaths_europe, scale = 3, limitsize = FALSE)
+
+
+plot_percent_deaths_world <- ggplot(World_Countries, aes(x = log(percent_world_pop), y = log(percent_world_death), label = Country_Name)) + 
+    labs(x = "Percent of Total World Population", y = "Percent of Total World Death") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6,  segment.size = 0.1) +
+    geom_abline(slope = 1) +
+      scale_size_continuous(name="Population\nSize", limits=c(50000, 14500000000), breaks = c(50000, 100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + 
+    theme(legend.spacing.x = unit(4.0, 'mm'))
+    
+
+plot_percent_deaths_world 
+
+ggsave("new_plot_percent_deaths_world.pdf", plot = plot_percent_deaths_world, scale = 3, limitsize = FALSE)
+
+
+plot_percent_deaths_PCA <- ggplot(PCA_graph_deaths_pop, aes(x = log(percent_PCA_pop), y = log(percent_PCA_death), label = Country_Name)) + 
+    labs(x = "Percent of Total Population", y = "Percent of Total Death") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6,  segment.size = 0.1) +
+    geom_abline(slope = 1) +
+      scale_size_continuous(name="Population\nSize", limits=c(100000, 14500000000), breaks = c(100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+        theme(legend.spacing.x = unit(4.0, 'mm'))
+
+
+plot_percent_deaths_PCA
+
+ggsave("new_plot_percent_deaths_PCA.pdf", plot = plot_percent_deaths_PCA, scale = 3, limitsize = FALSE)
+
+    
+```
+
+
+#5 Graphs for X: date_max_daily_case_minus_max_string_index Y: cases_per_100000inhabitants
+
+```{r}
+#5.1 Graph for Europe 
+
+plot_cases_dates_europe <- ggplot(European_Countries, aes(x = date_max_daily_case_minus_max_string_index, y = cases_per_100000inhabitants, label = Country_Name)) + 
+    labs(x = "Days From Date of Maximum Stringency Index to Date of Maximum Daily Cases", y = "Cases Per 100,000 Inhabitants") + 
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits = c(38000, 150000000), breaks= c(50000, 1000000, 10000000, 100000000, 150000000), labels = c(50000, 1000000, 10000000, 100000000, 150000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + theme(legend.spacing.x = unit(4.0, 'mm'))
+
+
+plot_cases_dates_europe
+
+ggsave("new_plot_cases_dates_europe.pdf", plot = plot_cases_dates_europe, scale = 3, limitsize = FALSE)
+
+
+#5.2 Graph for the World 
+
+plot_cases_dates_world <- ggplot(World_Countries, aes(x = date_max_daily_case_minus_max_string_index, y = cases_per_100000inhabitants, label = Country_Name)) + 
+    labs(x = "Days From Date of Maximum Stringency Index to Date of Maximum Daily Cases", y = "Cases Per 100,000 Inhabitants") + 
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits=c(50000, 14500000000), breaks = c(50000, 100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+    theme(legend.spacing.x = unit(4.0, 'mm'))
+    
+
+plot_cases_dates_world
+
+ggsave("new_plot_cases_dates_world.pdf", plot = plot_cases_dates_world, scale = 3, limitsize = FALSE)
+
+
+#5.3 Graph for the PCA active countries
+
+plot_cases_dates_PCA <- ggplot(PCA_graph_data, aes(x = date_max_daily_case_minus_max_string_index, y = cases_per_100000inhabitants, label = Country_Name)) + 
+    labs(x = "Days From Date of Maximum Stringency Index to Date of Maximum Daily Cases", y = "Cases Per 100,000 Inhabitants") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits=c(100000, 14500000000), breaks = c(100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+            theme(legend.spacing.x = unit(4.0, 'mm'))
+
+    
+
+plot_cases_dates_PCA
+
+ggsave("new_plot_cases_dates_PCA.pdf", plot = plot_cases_dates_PCA, scale = 3, limitsize = FALSE)
+
+
+
+```
+
+#6 Graphs for X: date_max_daily_case_minus_max_string_index Y: deaths_per_100000inhabitants
+```{r}
+#6.1 Graph for Europe 
+
+plot_deaths_dates_europe <- ggplot(European_Countries, aes(x = date_max_daily_case_minus_max_string_index, y = deaths_per_100000inhabitants, label = Country_Name)) + 
+    labs(x = "Days From Date of Maximum Stringency Index to Date of Maximum Daily Cases", y = "Deaths Per 100,000 Inhabitants") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits = c(38000, 150000000), breaks= c(50000, 1000000, 10000000, 100000000, 150000000), labels = c(50000, 1000000, 10000000, 100000000, 150000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + theme(legend.spacing.x = unit(4.0, 'mm'))
+
+
+plot_deaths_dates_europe
+
+ggsave("new_plot_deaths_dates_europe.pdf", plot = plot_deaths_dates_europe, scale = 3, limitsize = FALSE)
+
+
+#6.2 Graph for World
+
+plot_deaths_dates_world <- ggplot(World_Countries, aes(x = date_max_daily_case_minus_max_string_index, y = deaths_per_100000inhabitants, label = Country_Name)) + 
+    labs(x = "Days From Date of Maximum Stringency Index to Date of Maximum Daily Cases", y = "Deaths Per 100,000 Inhabitants") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits=c(50000, 14500000000), breaks = c(50000, 100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) +
+    theme(legend.spacing.x = unit(4.0, 'mm'))
+    
+
+plot_deaths_dates_world
+
+ggsave("new_plot_deaths_dates_world.pdf", plot = plot_deaths_dates_world, scale = 3, limitsize = FALSE)
+
+
+#6.3 Graph for PCA countries
+
+plot_deaths_dates_PCA <- ggplot(PCA_graph_data, aes(x = date_max_daily_case_minus_max_string_index, y = deaths_per_100000inhabitants, label = Country_Name)) + 
+    labs(x = "Days From Date of Maximum Stringency Index to Date of Maximum Daily Cases", y = "Deaths Per 100,000 Inhabitants") +
+  geom_point(aes(size = pop_2020), colour = "blue", alpha = 0.2) + 
+  geom_text_repel(size = 1.6, segment.size = 0.1) +
+    scale_size_continuous(name="Population\nSize", limits=c(100000, 14500000000), breaks = c(100000, 10000000, 100000000, 1000000000), guide=guide_legend(title.theme = element_text(size=7,angle = 0), label.theme = element_text(size=7,angle = 0))) + 
+        theme(legend.spacing.x = unit(4.0, 'mm'))
+
+    
+
+plot_deaths_dates_PCA
+
+ggsave("new_plot_deaths_dates_PCA.pdf", plot = plot_deaths_dates_PCA, scale = 3, limitsize = FALSE)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
